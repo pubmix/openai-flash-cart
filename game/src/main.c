@@ -48,6 +48,12 @@ void main(void) {
     wait_frames(150);
 
     blank_screen();
+    wait_frames(18);
+
+    show_logo(devday_tiles, DEVDAY_TILE_COUNT, devday_map);
+    wait_frames(150);
+
+    blank_screen();
 
     while (1) {
         wait_vbl_done();

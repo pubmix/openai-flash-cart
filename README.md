@@ -6,7 +6,8 @@ Boot sequence:
 
 1. ModRetro logo
 2. OpenAI logo
-3. Blank black screen
+3. `OpenAI Dev Day 2026` / `Powered by Codex`
+4. Blank black screen
 
 The built ROM is included at:
 
@@ -68,6 +69,14 @@ To regenerate the assets from source logo PNGs:
 ```powershell
 .\tools\make_logo_assets.ps1 -OpenAiLogo C:\path\to\openai.png -ModRetroLogo C:\path\to\modretro.png
 ```
+
+The third screen is rendered from text. If Kallisto Bold is available as a font file, pass it explicitly:
+
+```powershell
+.\tools\make_logo_assets.ps1 -OpenAiLogo C:\path\to\openai.png -ModRetroLogo C:\path\to\modretro.png -FontPath C:\path\to\Kallisto-Bold.otf
+```
+
+The checked-in generated assets currently use `Bahnschrift SemiBold` as a local fallback when Kallisto Bold is not installed.
 
 ## Cartridge Details
 

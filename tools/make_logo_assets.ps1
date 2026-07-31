@@ -2,11 +2,35 @@ param(
     [Parameter(Mandatory = $true)][string]$OpenAiLogo,
     [Parameter(Mandatory = $true)][string]$ModRetroLogo,
     [string]$OutHeader = ".\game\src\assets\logo_assets.h",
-    [string]$PreviewDir = ".\assets"
+    [string]$PreviewDir = ".\assets",
+    [string]$FontPath = "",
+    [string]$FontFamily = "Kallisto",
+    [string]$FallbackFontFamily = "Bahnschrift SemiBold"
 )
 
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Drawing
+
+function Get-FontFamily([string]$RequestedFamily, [string]$FallbackFamily, [string]$Path) {
+    if ($Path -and (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        $privateFonts = [System.Drawing.Text.PrivateFontCollection]::new()
+        $privateFonts.AddFontFile((Resolve-Path -LiteralPath $Path))
+        return [PSCustomObject]@{ Family = $privateFonts.Families[0]; PrivateFonts = $privateFonts; UsedName = $privateFonts.Families[0].Name }
+    }
+
+    $installed = [System.Drawing.Text.InstalledFontCollection]::new()
+    foreach ($family in $installed.Families) {
+        if ($family.Name -eq $RequestedFamily -or $family.Name -eq "$RequestedFamily Bold") {
+            return [PSCustomObject]@{ Family = $family; PrivateFonts = $null; UsedName = $family.Name }
+        }
+    }
+    foreach ($family in $installed.Families) {
+        if ($family.Name -eq $FallbackFamily) {
+            return [PSCustomObject]@{ Family = $family; PrivateFonts = $null; UsedName = $family.Name }
+        }
+    }
+    return [PSCustomObject]@{ Family = ([System.Drawing.FontFamily]::GenericSansSerif); PrivateFonts = $null; UsedName = "GenericSansSerif" }
+}
 
 function Get-VisibleBox([System.Drawing.Bitmap]$Bitmap, [switch]$UseAlphaOnly) {
     $minX = $Bitmap.Width
@@ -105,6 +129,66 @@ function New-ScreenPixels([string]$Path, [string]$Kind) {
     }
 }
 
+function New-TextScreenPixels([System.Drawing.FontFamily]$Family, [string]$Kind) {
+    $screenW = 160
+    $screenH = 144
+    $canvas = [System.Drawing.Bitmap]::new($screenW, $screenH, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+    $g = [System.Drawing.Graphics]::FromImage($canvas)
+    $g.Clear([System.Drawing.Color]::Black)
+    $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
+    $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+    $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+
+    $brush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::White)
+    $format = [System.Drawing.StringFormat]::new()
+    $format.Alignment = [System.Drawing.StringAlignment]::Center
+    $format.LineAlignment = [System.Drawing.StringAlignment]::Center
+
+    $titleFont = [System.Drawing.Font]::new($Family, 13.0, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+    $subFont = [System.Drawing.Font]::new($Family, 11.0, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+    $g.DrawString("OpenAI Dev Day 2026", $titleFont, $brush, [System.Drawing.RectangleF]::new(0, 52, $screenW, 20), $format)
+    $g.DrawString("Powered by Codex", $subFont, $brush, [System.Drawing.RectangleF]::new(0, 75, $screenW, 18), $format)
+
+    $pixels = New-Object 'int[,]' $screenW, $screenH
+    for ($y = 0; $y -lt $screenH; $y++) {
+        for ($x = 0; $x -lt $screenW; $x++) {
+            $c = $canvas.GetPixel($x, $y)
+            $lum = [int](0.2126 * $c.R + 0.7152 * $c.G + 0.0722 * $c.B)
+            $intensity = [int](($c.A / 255.0) * $lum)
+            if ($intensity -lt 24) { $idx = 3 }
+            elseif ($intensity -lt 96) { $idx = 2 }
+            elseif ($intensity -lt 178) { $idx = 1 }
+            else { $idx = 0 }
+            $pixels[$x, $y] = $idx
+        }
+    }
+
+    $preview = [System.Drawing.Bitmap]::new($screenW, $screenH, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+    $colors = @(
+        [System.Drawing.Color]::FromArgb(255, 248, 248, 232),
+        [System.Drawing.Color]::FromArgb(255, 168, 188, 136),
+        [System.Drawing.Color]::FromArgb(255, 76, 92, 80),
+        [System.Drawing.Color]::FromArgb(255, 8, 12, 14)
+    )
+    for ($y = 0; $y -lt $screenH; $y++) {
+        for ($x = 0; $x -lt $screenW; $x++) {
+            $colorIndex = $pixels[$x, $y]
+            $preview.SetPixel($x, $y, $colors[$colorIndex])
+        }
+    }
+    New-Item -ItemType Directory -Force -Path $PreviewDir | Out-Null
+    $preview.Save((Join-Path (Resolve-Path -LiteralPath $PreviewDir) "$Kind-screen-preview.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+
+    $preview.Dispose()
+    $titleFont.Dispose()
+    $subFont.Dispose()
+    $format.Dispose()
+    $brush.Dispose()
+    $g.Dispose()
+    $canvas.Dispose()
+    return ,$pixels
+}
+
 function Convert-ToTiles([int[,]]$Pixels, [string]$Name) {
     $tileLookup = @{}
     $tiles = New-Object System.Collections.Generic.List[byte[]]
@@ -156,11 +240,13 @@ function Format-CArray([string]$Type, [string]$Name, [System.Collections.IEnumer
     return ($lines -join "`r`n")
 }
 
-function Write-AssetHeader($OpenAi, $ModRetro, [string]$Path) {
+function Write-AssetHeader($OpenAi, $ModRetro, $DevDay, [string]$Path) {
     $openTileBytes = @()
     foreach ($tile in $OpenAi.Tiles) { $openTileBytes += $tile }
     $modTileBytes = @()
     foreach ($tile in $ModRetro.Tiles) { $modTileBytes += $tile }
+    $devdayTileBytes = @()
+    foreach ($tile in $DevDay.Tiles) { $devdayTileBytes += $tile }
 
     $content = @(
         "#ifndef LOGO_ASSETS_H",
@@ -172,6 +258,7 @@ function Write-AssetHeader($OpenAi, $ModRetro, [string]$Path) {
         "#define LOGO_MAP_HEIGHT 18",
         "#define OPENAI_TILE_COUNT $($OpenAi.Tiles.Count)",
         "#define MODRETRO_TILE_COUNT $($ModRetro.Tiles.Count)",
+        "#define DEVDAY_TILE_COUNT $($DevDay.Tiles.Count)",
         "",
         (Format-CArray "uint8_t" "openai_tiles" $openTileBytes 16),
         "",
@@ -180,6 +267,10 @@ function Write-AssetHeader($OpenAi, $ModRetro, [string]$Path) {
         (Format-CArray "uint8_t" "modretro_tiles" $modTileBytes 16),
         "",
         (Format-CArray "uint8_t" "modretro_map" $ModRetro.Map 20),
+        "",
+        (Format-CArray "uint8_t" "devday_tiles" $devdayTileBytes 16),
+        "",
+        (Format-CArray "uint8_t" "devday_map" $DevDay.Map 20),
         "",
         "#endif"
     ) -join "`r`n"
@@ -190,11 +281,16 @@ function Write-AssetHeader($OpenAi, $ModRetro, [string]$Path) {
 
 $openPixels = New-ScreenPixels -Path $OpenAiLogo -Kind "openai"
 $modPixels = New-ScreenPixels -Path $ModRetroLogo -Kind "modretro"
+$fontInfo = Get-FontFamily -RequestedFamily $FontFamily -FallbackFamily $FallbackFontFamily -Path $FontPath
+$devdayPixels = New-TextScreenPixels -Family $fontInfo.Family -Kind "devday"
 $openAsset = Convert-ToTiles -Pixels $openPixels -Name "openai"
 $modAsset = Convert-ToTiles -Pixels $modPixels -Name "modretro"
-Write-AssetHeader -OpenAi $openAsset -ModRetro $modAsset -Path $OutHeader
+$devdayAsset = Convert-ToTiles -Pixels $devdayPixels -Name "devday"
+Write-AssetHeader -OpenAi $openAsset -ModRetro $modAsset -DevDay $devdayAsset -Path $OutHeader
 
 Write-Host "Wrote $OutHeader"
 Write-Host "OpenAI tiles: $($openAsset.Tiles.Count)"
 Write-Host "ModRetro tiles: $($modAsset.Tiles.Count)"
+Write-Host "Dev Day tiles: $($devdayAsset.Tiles.Count)"
+Write-Host "Dev Day font: $($fontInfo.UsedName)"
 Write-Host "Previews: $PreviewDir"
