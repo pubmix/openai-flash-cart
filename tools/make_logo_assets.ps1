@@ -132,7 +132,8 @@ function New-ScreenPixels([string]$Path, [string]$Kind) {
 function New-TextScreenPixels([System.Drawing.FontFamily]$Family, [string]$Kind, [string]$Line1 = "OpenAI Dev Day 2026", [string]$Line2 = "Powered by Codex") {
     $screenW = 160
     $screenH = 144
-    $canvas = [System.Drawing.Bitmap]::new($screenW, $screenH, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+    $scale = 4
+    $canvas = [System.Drawing.Bitmap]::new($screenW * $scale, $screenH * $scale, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
     $g = [System.Drawing.Graphics]::FromImage($canvas)
     $g.Clear([System.Drawing.Color]::Black)
     $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
@@ -144,17 +145,36 @@ function New-TextScreenPixels([System.Drawing.FontFamily]$Family, [string]$Kind,
     $format.Alignment = [System.Drawing.StringAlignment]::Center
     $format.LineAlignment = [System.Drawing.StringAlignment]::Center
 
-    $titleFont = [System.Drawing.Font]::new($Family, 13.0, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-    $subFont = [System.Drawing.Font]::new($Family, 11.0, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-    $g.DrawString($Line1, $titleFont, $brush, [System.Drawing.RectangleF]::new(0, 52, $screenW, 20), $format)
-    $g.DrawString($Line2, $subFont, $brush, [System.Drawing.RectangleF]::new(0, 75, $screenW, 18), $format)
+    if ($Kind -eq "devday") {
+        $fontA = [System.Drawing.Font]::new($Family, 18.0 * $scale, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+        $fontB = [System.Drawing.Font]::new($Family, 15.0 * $scale, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+        $fontC = [System.Drawing.Font]::new($Family, 11.0 * $scale, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+        $g.DrawString("OpenAI", $fontA, $brush, [System.Drawing.RectangleF]::new(0, 34 * $scale, $screenW * $scale, 24 * $scale), $format)
+        $g.DrawString("Dev Day 2026", $fontB, $brush, [System.Drawing.RectangleF]::new(0, 59 * $scale, $screenW * $scale, 22 * $scale), $format)
+        $g.DrawString($Line2, $fontC, $brush, [System.Drawing.RectangleF]::new(0, 86 * $scale, $screenW * $scale, 18 * $scale), $format)
+        $fontA.Dispose()
+        $fontB.Dispose()
+        $fontC.Dispose()
+    } else {
+        $titleFont = [System.Drawing.Font]::new($Family, 13.0 * $scale, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+        $subFont = [System.Drawing.Font]::new($Family, 16.0 * $scale, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+        $g.DrawString($Line1, $titleFont, $brush, [System.Drawing.RectangleF]::new(0, 50 * $scale, $screenW * $scale, 20 * $scale), $format)
+        $g.DrawString($Line2, $subFont, $brush, [System.Drawing.RectangleF]::new(0, 72 * $scale, $screenW * $scale, 24 * $scale), $format)
+        $titleFont.Dispose()
+        $subFont.Dispose()
+    }
 
     $pixels = New-Object 'int[,]' $screenW, $screenH
     for ($y = 0; $y -lt $screenH; $y++) {
         for ($x = 0; $x -lt $screenW; $x++) {
-            $c = $canvas.GetPixel($x, $y)
-            $lum = [int](0.2126 * $c.R + 0.7152 * $c.G + 0.0722 * $c.B)
-            $intensity = [int](($c.A / 255.0) * $lum)
+            $sum = 0
+            for ($sy = 0; $sy -lt $scale; $sy++) {
+                for ($sx = 0; $sx -lt $scale; $sx++) {
+                    $c = $canvas.GetPixel(($x * $scale) + $sx, ($y * $scale) + $sy)
+                    $sum += [int](0.2126 * $c.R + 0.7152 * $c.G + 0.0722 * $c.B)
+                }
+            }
+            $intensity = [int]($sum / ($scale * $scale))
             if ($intensity -lt 24) { $idx = 3 }
             elseif ($intensity -lt 96) { $idx = 2 }
             elseif ($intensity -lt 178) { $idx = 1 }
@@ -180,8 +200,6 @@ function New-TextScreenPixels([System.Drawing.FontFamily]$Family, [string]$Kind,
     $preview.Save((Join-Path (Resolve-Path -LiteralPath $PreviewDir) "$Kind-screen-preview.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 
     $preview.Dispose()
-    $titleFont.Dispose()
-    $subFont.Dispose()
     $format.Dispose()
     $brush.Dispose()
     $g.Dispose()

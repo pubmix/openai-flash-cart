@@ -10,6 +10,8 @@ Boot sequence:
 4. `Created by` / `Jeremy Fortner`
 5. Blank black screen
 
+The ROM also plays an original watery ambient PSG track during the splash sequence.
+
 The built ROM is included at:
 
 ```text
@@ -77,11 +79,11 @@ The third screen is rendered from text. If Kallisto Bold is available as a font 
 .\tools\make_logo_assets.ps1 -OpenAiLogo C:\path\to\openai.png -ModRetroLogo C:\path\to\modretro.png -FontPath C:\path\to\Kallisto-Bold.otf
 ```
 
-The checked-in generated assets currently use `Bahnschrift SemiBold` as a local fallback when Kallisto Bold is not installed.
+The checked-in generated assets currently use `Bahnschrift SemiBold` as a local fallback when Kallisto Bold is not installed. Text screens are rendered with supersampling before conversion to Game Boy tiles for cleaner edges.
 
 ## Cartridge Details
 
 - ROM title: `OPENAIFLASH`
-- Output size: 32 KiB
 - CGB-aware `.gb`
+- Original synth music using Game Boy audio channels
 - No save RAM / battery required

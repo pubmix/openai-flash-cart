@@ -28,8 +28,11 @@ $outDir = Join-Path $repoRoot 'outputs'
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
 $rom = Join-Path $outDir 'openai-flash-cart.gb'
-$source = Join-Path $projectRoot 'src\main.c'
+$sources = @(
+    (Join-Path $projectRoot 'src\main.c'),
+    (Join-Path $projectRoot 'src\music.c')
+)
 
-& $lcc -Wm-yC -Wm-yn'OPENAIFLASH' -o $rom $source
+& $lcc -Wm-yC -Wm-yn'OPENAIFLASH' -o $rom $sources
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Host "Built $rom"

@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include "assets/logo_assets.h"
+#include "music.h"
 
 static const palette_color_t palettes[] = {
     RGB8(248, 248, 232), RGB8(168, 188, 136), RGB8(76, 92, 80), RGB8(8, 12, 14)
@@ -15,6 +16,7 @@ static const uint8_t blank_tile[] = {
 
 static void wait_frames(uint16_t frames) {
     while (frames--) {
+        music_update();
         wait_vbl_done();
     }
 }
@@ -37,6 +39,7 @@ void main(void) {
     set_bkg_palette(0, 1, palettes);
     BGP_REG = 0xE4U;
     DISPLAY_ON;
+    music_init();
 
     show_logo(modretro_tiles, MODRETRO_TILE_COUNT, modretro_map);
     wait_frames(150);
@@ -62,6 +65,7 @@ void main(void) {
     blank_screen();
 
     while (1) {
+        music_update();
         wait_vbl_done();
     }
 }
