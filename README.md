@@ -4,8 +4,8 @@ A minimal Game Boy ROM intended for a flash cart.
 
 Boot sequence:
 
-1. OpenAI logo
-2. ModRetro logo
+1. ModRetro logo
+2. OpenAI logo
 3. Blank black screen
 
 The built ROM is included at:

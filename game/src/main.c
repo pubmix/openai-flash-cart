@@ -38,13 +38,13 @@ void main(void) {
     BGP_REG = 0xE4U;
     DISPLAY_ON;
 
-    show_logo(openai_tiles, OPENAI_TILE_COUNT, openai_map);
+    show_logo(modretro_tiles, MODRETRO_TILE_COUNT, modretro_map);
     wait_frames(150);
 
     blank_screen();
     wait_frames(18);
 
-    show_logo(modretro_tiles, MODRETRO_TILE_COUNT, modretro_map);
+    show_logo(openai_tiles, OPENAI_TILE_COUNT, openai_map);
     wait_frames(150);
 
     blank_screen();
