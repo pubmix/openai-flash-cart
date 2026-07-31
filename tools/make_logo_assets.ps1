@@ -129,7 +129,7 @@ function New-ScreenPixels([string]$Path, [string]$Kind) {
     }
 }
 
-function New-TextScreenPixels([System.Drawing.FontFamily]$Family, [string]$Kind) {
+function New-TextScreenPixels([System.Drawing.FontFamily]$Family, [string]$Kind, [string]$Line1 = "OpenAI Dev Day 2026", [string]$Line2 = "Powered by Codex") {
     $screenW = 160
     $screenH = 144
     $canvas = [System.Drawing.Bitmap]::new($screenW, $screenH, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
@@ -146,8 +146,8 @@ function New-TextScreenPixels([System.Drawing.FontFamily]$Family, [string]$Kind)
 
     $titleFont = [System.Drawing.Font]::new($Family, 13.0, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
     $subFont = [System.Drawing.Font]::new($Family, 11.0, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-    $g.DrawString("OpenAI Dev Day 2026", $titleFont, $brush, [System.Drawing.RectangleF]::new(0, 52, $screenW, 20), $format)
-    $g.DrawString("Powered by Codex", $subFont, $brush, [System.Drawing.RectangleF]::new(0, 75, $screenW, 18), $format)
+    $g.DrawString($Line1, $titleFont, $brush, [System.Drawing.RectangleF]::new(0, 52, $screenW, 20), $format)
+    $g.DrawString($Line2, $subFont, $brush, [System.Drawing.RectangleF]::new(0, 75, $screenW, 18), $format)
 
     $pixels = New-Object 'int[,]' $screenW, $screenH
     for ($y = 0; $y -lt $screenH; $y++) {
@@ -240,13 +240,15 @@ function Format-CArray([string]$Type, [string]$Name, [System.Collections.IEnumer
     return ($lines -join "`r`n")
 }
 
-function Write-AssetHeader($OpenAi, $ModRetro, $DevDay, [string]$Path) {
+function Write-AssetHeader($OpenAi, $ModRetro, $DevDay, $Creator, [string]$Path) {
     $openTileBytes = @()
     foreach ($tile in $OpenAi.Tiles) { $openTileBytes += $tile }
     $modTileBytes = @()
     foreach ($tile in $ModRetro.Tiles) { $modTileBytes += $tile }
     $devdayTileBytes = @()
     foreach ($tile in $DevDay.Tiles) { $devdayTileBytes += $tile }
+    $creatorTileBytes = @()
+    foreach ($tile in $Creator.Tiles) { $creatorTileBytes += $tile }
 
     $content = @(
         "#ifndef LOGO_ASSETS_H",
@@ -259,6 +261,7 @@ function Write-AssetHeader($OpenAi, $ModRetro, $DevDay, [string]$Path) {
         "#define OPENAI_TILE_COUNT $($OpenAi.Tiles.Count)",
         "#define MODRETRO_TILE_COUNT $($ModRetro.Tiles.Count)",
         "#define DEVDAY_TILE_COUNT $($DevDay.Tiles.Count)",
+        "#define CREATOR_TILE_COUNT $($Creator.Tiles.Count)",
         "",
         (Format-CArray "uint8_t" "openai_tiles" $openTileBytes 16),
         "",
@@ -272,6 +275,10 @@ function Write-AssetHeader($OpenAi, $ModRetro, $DevDay, [string]$Path) {
         "",
         (Format-CArray "uint8_t" "devday_map" $DevDay.Map 20),
         "",
+        (Format-CArray "uint8_t" "creator_tiles" $creatorTileBytes 16),
+        "",
+        (Format-CArray "uint8_t" "creator_map" $Creator.Map 20),
+        "",
         "#endif"
     ) -join "`r`n"
 
@@ -282,15 +289,18 @@ function Write-AssetHeader($OpenAi, $ModRetro, $DevDay, [string]$Path) {
 $openPixels = New-ScreenPixels -Path $OpenAiLogo -Kind "openai"
 $modPixels = New-ScreenPixels -Path $ModRetroLogo -Kind "modretro"
 $fontInfo = Get-FontFamily -RequestedFamily $FontFamily -FallbackFamily $FallbackFontFamily -Path $FontPath
-$devdayPixels = New-TextScreenPixels -Family $fontInfo.Family -Kind "devday"
+$devdayPixels = New-TextScreenPixels -Family $fontInfo.Family -Kind "devday" -Line1 "OpenAI Dev Day 2026" -Line2 "Powered by Codex"
+$creatorPixels = New-TextScreenPixels -Family $fontInfo.Family -Kind "creator" -Line1 "Created by" -Line2 "Jeremy Fortner"
 $openAsset = Convert-ToTiles -Pixels $openPixels -Name "openai"
 $modAsset = Convert-ToTiles -Pixels $modPixels -Name "modretro"
 $devdayAsset = Convert-ToTiles -Pixels $devdayPixels -Name "devday"
-Write-AssetHeader -OpenAi $openAsset -ModRetro $modAsset -DevDay $devdayAsset -Path $OutHeader
+$creatorAsset = Convert-ToTiles -Pixels $creatorPixels -Name "creator"
+Write-AssetHeader -OpenAi $openAsset -ModRetro $modAsset -DevDay $devdayAsset -Creator $creatorAsset -Path $OutHeader
 
 Write-Host "Wrote $OutHeader"
 Write-Host "OpenAI tiles: $($openAsset.Tiles.Count)"
 Write-Host "ModRetro tiles: $($modAsset.Tiles.Count)"
 Write-Host "Dev Day tiles: $($devdayAsset.Tiles.Count)"
+Write-Host "Creator tiles: $($creatorAsset.Tiles.Count)"
 Write-Host "Dev Day font: $($fontInfo.UsedName)"
 Write-Host "Previews: $PreviewDir"

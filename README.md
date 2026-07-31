@@ -7,7 +7,8 @@ Boot sequence:
 1. ModRetro logo
 2. OpenAI logo
 3. `OpenAI Dev Day 2026` / `Powered by Codex`
-4. Blank black screen
+4. `Created by` / `Jeremy Fortner`
+5. Blank black screen
 
 The built ROM is included at:
 

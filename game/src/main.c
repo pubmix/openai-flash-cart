@@ -54,6 +54,12 @@ void main(void) {
     wait_frames(150);
 
     blank_screen();
+    wait_frames(18);
+
+    show_logo(creator_tiles, CREATOR_TILE_COUNT, creator_map);
+    wait_frames(150);
+
+    blank_screen();
 
     while (1) {
         wait_vbl_done();
